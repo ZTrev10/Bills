@@ -148,13 +148,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const AT_TOKEN = 'patT9rox9Jzr6GSJa.4e2b9986d64742546ff56c1c18ddd6f5310926f642f169c0181aad8b80c5b9b2';
-const BASE_ID = 'appP5DkNm02Zsg3B6';
-const TABLE_NAME = 'medicalBills';
-
-let bills = [];
-let expandedId = null;
-
 const SEED = [
   {claimId:'HMH-0415',date:'2026-04-15',provider:'Huntington Memorial Hospital',type:'Hospital — acute stay',billed:295984.12,allowed:45888,yours:0,source:'UHC'},
   {claimId:'CONN-0415a',date:'2026-04-15',provider:'Conner, Timothy MD',type:'Radiology (MRI)',billed:390,allowed:182,yours:36.40,source:'UHC'},
@@ -219,40 +212,52 @@ const SEED = [
   {claimId:'FARUKKHI-0527',date:'2026-05-27',provider:'Farukkhi, Mohammed MD',type:'Advanced radiology — MRI',billed:2395,allowed:489,yours:0,source:'UHC'},
 ];
 
+let bills = [];
+let expandedId = null;
+
 function fmt(n){return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtDate(d){if(!d)return'';const p=d.split('-');return p[1]+'/'+p[2]+'/'+p[0].slice(2);}
 function toast(msg,dur=3000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
 function progress(pct){document.getElementById('loading-bar').style.width=pct+'%';}
 function statusLabel(b){if(b.pending)return'pending';if(b.status==='paid')return'paid';if(b.status==='disputed')return'disputed';if(b.status==='matched')return'matched';if((b.yours||0)===0)return'covered';return'open';}
 
-async function atFetch(path,method='GET',body=null){
-  const opts={method,headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'}};
+async function api(path, method='GET', body=null){
+  const opts={method,headers:{'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
-  const r=await fetch('https://api.airtable.com/v0/'+BASE_ID+'/'+encodeURIComponent(TABLE_NAME)+(path?'/'+path:''),opts);
+  const r=await fetch('/api/airtable?path='+path,opts);
   return r.json();
 }
 
 async function ensureTable(){
-  const r=await fetch('https://api.airtable.com/v0/meta/bases/'+BASE_ID+'/tables',{headers:{'Authorization':'Bearer '+AT_TOKEN}});
-  const data=await r.json();
-  if(data.tables&&data.tables.find(t=>t.name===TABLE_NAME))return true;
-  await fetch('https://api.airtable.com/v0/meta/bases/'+BASE_ID+'/tables',{method:'POST',headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({name:TABLE_NAME,fields:[{name:'claimId',type:'singleLineText'},{name:'date',type:'singleLineText'},{name:'provider',type:'singleLineText'},{name:'type',type:'singleLineText'},{name:'billed',type:'number',options:{precision:2}},{name:'allowed',type:'number',options:{precision:2}},{name:'yours',type:'number',options:{precision:2}},{name:'source',type:'singleLineText'},{name:'status',type:'singleLineText'},{name:'paidAmount',type:'number',options:{precision:2}},{name:'paidDate',type:'singleLineText'},{name:'notes',type:'multilineText'},{name:'pending',type:'checkbox',options:{color:'yellowBright',icon:'check'}}]})});
-  return true;
+  await api('ensure','POST',{});
 }
 
 async function loadBills(){
-  let all=[],offset=null;
-  do{const url=offset?'?offset='+offset:'';const data=await atFetch(url);if(data.records)all=all.concat(data.records);offset=data.offset;}while(offset);
+  let all=[], offset=null;
+  do {
+    const url = 'records' + (offset ? '&offset='+offset : '');
+    const data = await api(url);
+    if(data.records) all=all.concat(data.records);
+    offset = data.offset;
+  } while(offset);
   return all.map(r=>({_id:r.id,...r.fields}));
 }
 
 async function seedBills(){
   const chunks=[];
-  for(let i=0;i<SEED.length;i+=10)chunks.push(SEED.slice(i,i+10));
-  for(const chunk of chunks){await atFetch('','POST',{records:chunk.map(b=>({fields:{claimId:b.claimId,date:b.date,provider:b.provider,type:b.type,billed:b.billed||0,allowed:b.allowed||0,yours:b.yours||0,source:b.source,status:'open',paidAmount:0,paidDate:'',notes:'',pending:!!b.pending}}))});}
+  for(let i=0;i<SEED.length;i+=10) chunks.push(SEED.slice(i,i+10));
+  for(const chunk of chunks){
+    await api('records','POST',{records:chunk.map(b=>({fields:{
+      claimId:b.claimId,date:b.date,provider:b.provider,type:b.type,
+      billed:b.billed||0,allowed:b.allowed||0,yours:b.yours||0,
+      source:b.source,status:'open',paidAmount:0,paidDate:'',notes:'',pending:!!b.pending
+    }}))});
+  }
 }
 
-async function updateBill(id,fields){await atFetch(id,'PATCH',{fields});}
+async function updateBill(id,fields){
+  await fetch('/api/airtable?path=record&id='+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+}
 
 function renderSummary(){
   const active=bills.filter(b=>!b.pending);
@@ -273,7 +278,7 @@ const SVG_WARN=`<svg width="12" height="12" fill="none" stroke="currentColor" st
 const SVG_CIRCLE=`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>`;
 
 function iconFor(sl){if(sl==='paid')return SVG_CHECK;if(sl==='matched')return SVG_FILE;if(sl==='disputed')return SVG_WARN;return SVG_CIRCLE;}
-function circleClass(sl){if(sl==='paid'||sl==='matched'||sl==='disputed')return sl;return'empty';}
+function circleClass(sl){return(sl==='paid'||sl==='matched'||sl==='disputed')?sl:'empty';}
 function badgeText(sl){if(sl==='open')return'open';if(sl==='matched')return'bill received';if(sl==='covered')return'$0 covered';return sl;}
 
 function renderList(){
@@ -388,12 +393,19 @@ document.getElementById('filter-status').addEventListener('change',renderList);
     statusEl.textContent='Connecting…';progress(20);
     await ensureTable();progress(50);
     let loaded=await loadBills();progress(75);
-    if(!loaded.length){statusEl.textContent='First run — seeding…';await seedBills();loaded=await loadBills();}
+    if(!loaded.length){
+      statusEl.textContent='First run — seeding…';
+      await seedBills();
+      loaded=await loadBills();
+    }
     bills=loaded;progress(100);
     statusEl.textContent=bills.length+' claims loaded';
     setTimeout(()=>{statusEl.textContent='';document.getElementById('loading-bar').style.display='none';},1500);
     renderSummary();renderList();
-  }catch(e){statusEl.textContent='Connection error';console.error(e);}
+  }catch(e){
+    statusEl.textContent='Connection error — check Vercel env vars';
+    console.error(e);
+  }
 })();
 </script>
 </body>
