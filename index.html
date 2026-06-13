@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical Bill Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --bg: #111010;
+    --surface: #1a1918;
+    --surface2: #222120;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0ece6;
+    --text2: #9a9590;
+    --text3: #5c5955;
+    --accent: #c8b89a;
+    --accent-dim: rgba(200,184,154,0.12);
+    --green: #4a9e6b;
+    --green-bg: rgba(74,158,107,0.12);
+    --green-text: #7dcca0;
+    --amber: #c49a3a;
+    --amber-bg: rgba(196,154,58,0.12);
+    --amber-text: #e8bf72;
+    --red: #b85c5c;
+    --red-bg: rgba(184,92,92,0.12);
+    --red-text: #e08080;
+    --blue: #5a8abf;
+    --blue-bg: rgba(90,138,191,0.12);
+    --blue-text: #8ab4e0;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font: 'DM Sans', system-ui, sans-serif;
+    --font-mono: 'DM Mono', 'Fira Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+  header { border-bottom: 0.5px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  .logo { font-family: var(--font-mono); font-size: 13px; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-right { font-size: 12px; color: var(--text3); }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 28px; }
+  .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--text3); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+  .metric-value { font-family: var(--font-mono); font-size: 20px; color: var(--text); }
+  .metric-value.green { color: var(--green-text); }
+  .metric-value.amber { color: var(--amber-text); }
+  .oop-banner { background: var(--green-bg); border: 0.5px solid var(--green); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 24px; font-size: 12px; color: var(--green-text); display: flex; align-items: center; gap: 8px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .toolbar input, .toolbar select { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--font); padding: 7px 12px; outline: none; transition: border-color 0.15s; }
+  .toolbar input { flex: 1; min-width: 160px; }
+  .toolbar input::placeholder { color: var(--text3); }
+  .toolbar input:focus, .toolbar select:focus { border-color: var(--accent); }
+  .toolbar select option { background: #1a1918; }
+  .section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); padding: 16px 0 6px; border-bottom: 0.5px solid var(--border); margin-bottom: 2px; }
+  .bill-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 8px; border-bottom: 0.5px solid var(--border); cursor: pointer; border-radius: var(--radius); transition: background 0.1s; margin: 0 -8px; }
+  .bill-row:hover { background: var(--surface); }
+  .check-circle { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: 0.5px solid var(--border2); display: flex; align-items: center; justify-content: center; margin-top: 1px; transition: background 0.15s, border-color 0.15s; }
+  .check-circle.paid { background: var(--green-bg); border-color: var(--green); }
+  .check-circle.matched { background: var(--blue-bg); border-color: var(--blue); }
+  .check-circle.disputed { background: var(--red-bg); border-color: var(--red); }
+  .check-circle svg { width: 12px; height: 12px; }
+  .check-circle.paid svg { stroke: var(--green-text); }
+  .check-circle.matched svg { stroke: var(--blue-text); }
+  .check-circle.disputed svg { stroke: var(--red-text); }
+  .check-circle.empty svg { stroke: var(--text3); }
+  .bill-info { flex: 1; min-width: 0; }
+  .bill-provider { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bill-meta { font-size: 11px; color: var(--text2); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+  .badge-open { background: var(--amber-bg); color: var(--amber-text); }
+  .badge-matched { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-paid { background: var(--green-bg); color: var(--green-text); }
+  .badge-disputed { background: var(--red-bg); color: var(--red-text); }
+  .badge-covered { background: rgba(255,255,255,0.05); color: var(--text3); }
+  .badge-pending { background: rgba(255,255,255,0.05); color: var(--text3); }
+  .bill-amounts { flex-shrink: 0; text-align: right; }
+  .yours { font-family: var(--font-mono); font-size: 14px; font-weight: 500; }
+  .yours.zero { color: var(--text3); }
+  .yours.owed { color: var(--amber-text); }
+  .allowed-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .expand-panel { display: none; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin: 4px 0 10px 34px; }
+  .expand-panel.open { display: block; }
+  .expand-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .expand-field label { display: block; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .expand-field span { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 11px; color: var(--text3); }
+  .form-group input, .form-group textarea { background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--font); padding: 7px 10px; outline: none; transition: border-color 0.15s; }
+  .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { height: 56px; resize: vertical; min-width: 200px; }
+  .form-group input::placeholder, .form-group textarea::placeholder { color: var(--text3); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font-family: var(--font); font-size: 12px; padding: 6px 14px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 6px; }
+  button:hover { background: var(--surface2); color: var(--text); }
+  button.btn-paid { background: var(--green-bg); border-color: var(--green); color: var(--green-text); }
+  button.btn-paid:hover { background: rgba(74,158,107,0.2); }
+  button.btn-dispute { background: var(--red-bg); border-color: var(--red); color: var(--red-text); }
+  button.btn-dispute:hover { background: rgba(184,92,92,0.2); }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 10px 16px; font-size: 13px; color: var(--text); opacity: 0; transform: translateY(8px); transition: opacity 0.25s, transform 0.25s; pointer-events: none; max-width: 280px; z-index: 100; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .empty { padding: 48px 0; text-align: center; color: var(--text3); font-size: 13px; }
+  .loading-bar { height: 2px; background: var(--accent-dim); border-radius: 1px; margin-bottom: 28px; overflow: hidden; }
+  .loading-bar-inner { height: 100%; background: var(--accent); border-radius: 1px; width: 0%; transition: width 0.4s; }
+  @media (max-width: 600px) { main { padding: 20px 16px 60px; } header { padding: 0 16px; } .expand-panel { margin-left: 0; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Bill Tracker</div>
+  <div class="header-right" id="header-status">Loading…</div>
+</header>
+
+<main>
+  <div class="loading-bar"><div class="loading-bar-inner" id="loading-bar"></div></div>
+
+  <div class="oop-banner">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    Out-of-pocket maximum met — $4,200 individual. All in-network care is 100% covered for the rest of 2026.
+  </div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="metric-label">Total you owe</div><div class="metric-value" id="m-owed">—</div></div>
+    <div class="metric"><div class="metric-label">Paid so far</div><div class="metric-value green" id="m-paid">—</div></div>
+    <div class="metric"><div class="metric-label">Still open</div><div class="metric-value amber" id="m-open">—</div></div>
+    <div class="metric"><div class="metric-label">Checked off</div><div class="metric-value" id="m-count">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search provider…">
+    <select id="filter-status">
+      <option value="">All statuses</option>
+      <option value="open">Open balance</option>
+      <option value="matched">Bill received</option>
+      <option value="paid">Paid</option>
+      <option value="disputed">Disputed</option>
+      <option value="covered">Covered ($0)</option>
+      <option value="pending">Pending</option>
+    </select>
+  </div>
+
+  <div id="bill-list"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const AT_TOKEN = 'patT9rox9Jzr6GSJa.4e2b9986d64742546ff56c1c18ddd6f5310926f642f169c0181aad8b80c5b9b2';
+const BASE_ID = 'appP5DkNm02Zsg3B6';
+const TABLE_NAME = 'medicalBills';
+
+let bills = [];
+let expandedId = null;
+
+const SEED = [
+  {claimId:'HMH-0415',date:'2026-04-15',provider:'Huntington Memorial Hospital',type:'Hospital — acute stay',billed:295984.12,allowed:45888,yours:0,source:'UHC'},
+  {claimId:'CONN-0415a',date:'2026-04-15',provider:'Conner, Timothy MD',type:'Radiology (MRI)',billed:390,allowed:182,yours:36.40,source:'UHC'},
+  {claimId:'CONN-0415b',date:'2026-04-15',provider:'Conner, Timothy MD',type:'Radiology (CT)',billed:430,allowed:198.24,yours:0,source:'UHC'},
+  {claimId:'GUTIERREZ-0415',date:'2026-04-15',provider:'Gutierrez, Luis MD',type:'Radiology',billed:142,allowed:67.76,yours:13.55,source:'UHC'},
+  {claimId:'LAM-0415',date:'2026-04-15',provider:'Lam, Warren MD',type:'Chest X-ray',billed:30,allowed:14.55,yours:2.91,source:'UHC'},
+  {claimId:'LIU-0415',date:'2026-04-15',provider:'Liu, Bert MD',type:'Critical care',billed:420.23,allowed:188.40,yours:37.68,source:'UHC'},
+  {claimId:'WEISKOPF-0416',date:'2026-04-16',provider:'Weiskopf, Manuel — Anesthesia',type:'Anesthesia / Surgery',billed:5940,allowed:2328.26,yours:773.94,source:'UHC'},
+  {claimId:'SHAHINIAN-0416',date:'2026-04-16',provider:'Shahinian, Adena DO',type:'Hospital medicine',billed:850.71,allowed:181.35,yours:36.27,source:'UHC'},
+  {claimId:'AINECHI-0416',date:'2026-04-16',provider:'Ainechi, Sanaz MD',type:'Pathology / Lab',billed:2160,allowed:1640.53,yours:328.11,source:'UHC'},
+  {claimId:'LOPEZ-0416',date:'2026-04-16',provider:'Lopez, Juan MD',type:'Radiology',billed:703,allowed:239.20,yours:47.84,source:'UHC'},
+  {claimId:'CHANG-0416',date:'2026-04-16',provider:'Chang, Vincent MD',type:'Critical care',billed:420.23,allowed:188.40,yours:37.68,source:'UHC'},
+  {claimId:'YOUNG-0416',date:'2026-04-16',provider:'Young, Kristal MD',type:'Diagnostic — EKG',billed:100,allowed:7.20,yours:0,source:'UHC'},
+  {claimId:'MOK-0417',date:'2026-04-17',provider:'Mok, Carrie MD',type:'Hospital medicine — admit',billed:467,allowed:364.99,yours:364.99,source:'UHC'},
+  {claimId:'SHAHINIAN-0417',date:'2026-04-17',provider:'Shahinian, Adena DO',type:'Critical care',billed:922.20,allowed:168.03,yours:33.61,source:'UHC'},
+  {claimId:'MAN-0417',date:'2026-04-17',provider:'Man, David MD',type:'Infectious disease',billed:204.34,allowed:204.34,yours:40.87,source:'UHC'},
+  {claimId:'CHANG-0417',date:'2026-04-17',provider:'Chang, Vincent MD',type:'Critical care',billed:420.23,allowed:188.40,yours:37.68,source:'UHC'},
+  {claimId:'KONSTAS-0417',date:'2026-04-17',provider:'Konstas, Angelos MD',type:'Radiology (CT)',billed:142,allowed:67.76,yours:0,source:'UHC'},
+  {claimId:'PAVKOVIC-0418',date:'2026-04-18',provider:'Pavkovic, Steven MD',type:'Hospital medicine',billed:0,allowed:0,yours:0,source:'UHC',pending:true},
+  {claimId:'CHRISTODOULOU-0417',date:'2026-04-17',provider:'Christodoulou, Chris MD',type:'Hospital medicine',billed:0,allowed:0,yours:0,source:'UHC',pending:true},
+  {claimId:'MOK-0418',date:'2026-04-18',provider:'Mok, Carrie MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:192.16,source:'UHC'},
+  {claimId:'SHAHINIAN-0418',date:'2026-04-18',provider:'Shahinian, Adena DO',type:'Hospital medicine',billed:340.05,allowed:93.74,yours:18.75,source:'UHC'},
+  {claimId:'SAZEGAR-0418',date:'2026-04-18',provider:'Sazegar, Hooman DO',type:'Hospital medicine',billed:139.93,allowed:88.20,yours:17.64,source:'UHC'},
+  {claimId:'MOK-0419',date:'2026-04-19',provider:'Mok, Carrie MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:192.16,source:'UHC'},
+  {claimId:'HSU-0419',date:'2026-04-19',provider:'Hsu, Steven MD',type:'Hospital medicine — admit',billed:630,allowed:537.11,yours:537.11,source:'UHC'},
+  {claimId:'HSU-0420',date:'2026-04-20',provider:'Hsu, Steven MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'MOK-0420',date:'2026-04-20',provider:'Mok, Carrie MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'MAN-0420',date:'2026-04-20',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'HMH-REHAB-0421',date:'2026-04-21',provider:'Huntington Memorial Hospital — Rehab',type:'Inpatient rehab',billed:51632.98,allowed:38240,yours:600.30,source:'UHC'},
+  {claimId:'HSU-0421',date:'2026-04-21',provider:'Hsu, Steven MD',type:'Hospital medicine',billed:425,allowed:276.97,yours:55.39,source:'UHC'},
+  {claimId:'ANVEKAR-0421',date:'2026-04-21',provider:'Anvekar, Vaibhav MD',type:'Hospital discharge',billed:416,allowed:286.79,yours:57.36,source:'UHC'},
+  {claimId:'MAN-0421',date:'2026-04-21',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'ANVEKAR-0422',date:'2026-04-22',provider:'Anvekar, Vaibhav MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'HSU-0422',date:'2026-04-22',provider:'Hsu, Steven MD',type:'Hospital medicine',billed:630,allowed:537.11,yours:107.42,source:'UHC'},
+  {claimId:'MAN-0422',date:'2026-04-22',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'HSU-0423',date:'2026-04-23',provider:'Hsu, Steven MD',type:'Hospital medicine',billed:425,allowed:276.97,yours:55.39,source:'UHC'},
+  {claimId:'ANVEKAR-0423',date:'2026-04-23',provider:'Anvekar, Vaibhav MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'MAN-0423',date:'2026-04-23',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'ANVEKAR-0424',date:'2026-04-24',provider:'Anvekar, Vaibhav MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'BHAKTA-0424',date:'2026-04-24',provider:'Bhakta, Akash DO',type:'Hospital medicine',billed:425,allowed:276.97,yours:55.39,source:'UHC'},
+  {claimId:'MAN-0424',date:'2026-04-24',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'YANG-0425',date:'2026-04-25',provider:'Yang, Tae Chan MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'ANVEKAR-0425',date:'2026-04-25',provider:'Anvekar, Vaibhav MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'YANG-0426',date:'2026-04-26',provider:'Yang, Tae Chan MD',type:'Hospital discharge',billed:416,allowed:286.79,yours:57.36,source:'UHC'},
+  {claimId:'ANVEKAR-0426',date:'2026-04-26',provider:'Anvekar, Vaibhav MD',type:'Hospital medicine',billed:284,allowed:192.16,yours:38.43,source:'UHC'},
+  {claimId:'OPTIONCARE-0427',date:'2026-04-27',provider:'Option Care',type:'Home IV / PICC',billed:432.96,allowed:432.96,yours:86.59,source:'Insurance rep'},
+  {claimId:'QUEST-0427',date:'2026-04-27',provider:'Quest Diagnostics',type:'Lab — weekly',billed:281.35,allowed:17.28,yours:0,source:'Insurance rep'},
+  {claimId:'OPTIONCARE-0501',date:'2026-05-01',provider:'Option Care',type:'Home IV / PICC',billed:108.24,allowed:108.24,yours:21.65,source:'Insurance rep'},
+  {claimId:'OPTIONCARE-0502',date:'2026-05-02',provider:'Option Care',type:'Home IV / PICC',billed:757.68,allowed:757.68,yours:0,source:'UHC'},
+  {claimId:'MAN-0505',date:'2026-05-05',provider:'Man, David MD',type:'Infectious disease',billed:92.19,allowed:87.92,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0505',date:'2026-05-05',provider:'Option Care',type:'Home IV / PICC',billed:139.32,allowed:139.32,yours:0,source:'UHC'},
+  {claimId:'HMH-0506',date:'2026-05-06',provider:'Huntington Memorial Hospital',type:'Follow-up visit',billed:186.11,allowed:92.87,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0509',date:'2026-05-09',provider:'Option Care',type:'Home IV / PICC',billed:757.68,allowed:757.68,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0511',date:'2026-05-11',provider:'Option Care',type:'Home IV / PICC',billed:139.32,allowed:139.32,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0516',date:'2026-05-16',provider:'Option Care',type:'Home IV / PICC',billed:757.70,allowed:757.69,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0519',date:'2026-05-19',provider:'Option Care',type:'Home IV / PICC',billed:139.32,allowed:139.32,yours:0,source:'UHC'},
+  {claimId:'MAN-OON-0519',date:'2026-05-19',provider:'Man, David MD — OON (review)',type:'Infectious disease',billed:131.11,allowed:131.11,yours:131.11,source:'UHC'},
+  {claimId:'QUEST-0519',date:'2026-05-19',provider:'Quest Diagnostics',type:'Lab — weekly',billed:290.96,allowed:18.18,yours:0,source:'UHC'},
+  {claimId:'WEAR-0521',date:'2026-05-21',provider:'Wear, John DO',type:'Preventive exam',billed:568,allowed:191.24,yours:0,source:'UHC'},
+  {claimId:'OPTIONCARE-0523',date:'2026-05-23',provider:'Option Care',type:'Home IV / PICC',billed:649.46,allowed:649.45,yours:0,source:'UHC'},
+  {claimId:'QUEST-0526',date:'2026-05-26',provider:'Quest Diagnostics',type:'Lab — weekly',billed:190.81,allowed:13.69,yours:0,source:'UHC'},
+  {claimId:'FARUKKHI-0527',date:'2026-05-27',provider:'Farukkhi, Mohammed MD',type:'Advanced radiology — MRI',billed:2395,allowed:489,yours:0,source:'UHC'},
+];
+
+function fmt(n){return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtDate(d){if(!d)return'';const p=d.split('-');return p[1]+'/'+p[2]+'/'+p[0].slice(2);}
+function toast(msg,dur=3000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
+function progress(pct){document.getElementById('loading-bar').style.width=pct+'%';}
+function statusLabel(b){if(b.pending)return'pending';if(b.status==='paid')return'paid';if(b.status==='disputed')return'disputed';if(b.status==='matched')return'matched';if((b.yours||0)===0)return'covered';return'open';}
+
+async function atFetch(path,method='GET',body=null){
+  const opts={method,headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch('https://api.airtable.com/v0/'+BASE_ID+'/'+encodeURIComponent(TABLE_NAME)+(path?'/'+path:''),opts);
+  return r.json();
+}
+
+async function ensureTable(){
+  const r=await fetch('https://api.airtable.com/v0/meta/bases/'+BASE_ID+'/tables',{headers:{'Authorization':'Bearer '+AT_TOKEN}});
+  const data=await r.json();
+  if(data.tables&&data.tables.find(t=>t.name===TABLE_NAME))return true;
+  await fetch('https://api.airtable.com/v0/meta/bases/'+BASE_ID+'/tables',{method:'POST',headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({name:TABLE_NAME,fields:[{name:'claimId',type:'singleLineText'},{name:'date',type:'singleLineText'},{name:'provider',type:'singleLineText'},{name:'type',type:'singleLineText'},{name:'billed',type:'number',options:{precision:2}},{name:'allowed',type:'number',options:{precision:2}},{name:'yours',type:'number',options:{precision:2}},{name:'source',type:'singleLineText'},{name:'status',type:'singleLineText'},{name:'paidAmount',type:'number',options:{precision:2}},{name:'paidDate',type:'singleLineText'},{name:'notes',type:'multilineText'},{name:'pending',type:'checkbox',options:{color:'yellowBright',icon:'check'}}]})});
+  return true;
+}
+
+async function loadBills(){
+  let all=[],offset=null;
+  do{const url=offset?'?offset='+offset:'';const data=await atFetch(url);if(data.records)all=all.concat(data.records);offset=data.offset;}while(offset);
+  return all.map(r=>({_id:r.id,...r.fields}));
+}
+
+async function seedBills(){
+  const chunks=[];
+  for(let i=0;i<SEED.length;i+=10)chunks.push(SEED.slice(i,i+10));
+  for(const chunk of chunks){await atFetch('','POST',{records:chunk.map(b=>({fields:{claimId:b.claimId,date:b.date,provider:b.provider,type:b.type,billed:b.billed||0,allowed:b.allowed||0,yours:b.yours||0,source:b.source,status:'open',paidAmount:0,paidDate:'',notes:'',pending:!!b.pending}}))});}
+}
+
+async function updateBill(id,fields){await atFetch(id,'PATCH',{fields});}
+
+function renderSummary(){
+  const active=bills.filter(b=>!b.pending);
+  const totalOwed=active.reduce((s,b)=>s+(b.yours||0),0);
+  const totalPaid=active.filter(b=>b.status==='paid').reduce((s,b)=>s+(b.paidAmount||b.yours||0),0);
+  const remaining=Math.max(0,totalOwed-totalPaid);
+  const paidCount=active.filter(b=>b.status==='paid').length;
+  const openCount=active.filter(b=>(b.status==='open'||b.status==='matched')&&(b.yours||0)>0).length;
+  document.getElementById('m-owed').textContent=fmt(totalOwed);
+  document.getElementById('m-paid').textContent=fmt(totalPaid);
+  document.getElementById('m-open').textContent=fmt(remaining);
+  document.getElementById('m-count').textContent=paidCount+' / '+(paidCount+openCount);
+}
+
+const SVG_CHECK=`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+const SVG_FILE=`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>`;
+const SVG_WARN=`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+const SVG_CIRCLE=`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>`;
+
+function iconFor(sl){if(sl==='paid')return SVG_CHECK;if(sl==='matched')return SVG_FILE;if(sl==='disputed')return SVG_WARN;return SVG_CIRCLE;}
+function circleClass(sl){if(sl==='paid'||sl==='matched'||sl==='disputed')return sl;return'empty';}
+function badgeText(sl){if(sl==='open')return'open';if(sl==='matched')return'bill received';if(sl==='covered')return'$0 covered';return sl;}
+
+function renderList(){
+  const search=document.getElementById('search').value.toLowerCase();
+  const fStatus=document.getElementById('filter-status').value;
+  let filtered=bills.filter(b=>{
+    if(search&&!b.provider.toLowerCase().includes(search))return false;
+    const sl=statusLabel(b);
+    if(fStatus&&sl!==fStatus)return false;
+    return true;
+  });
+  filtered.sort((a,b)=>a.date>b.date?1:a.date<b.date?-1:0);
+  const groups={owed:[],covered:[],pending:[]};
+  filtered.forEach(b=>{if(b.pending)groups.pending.push(b);else if((b.yours||0)===0)groups.covered.push(b);else groups.owed.push(b);});
+
+  let html='';
+  function renderGroup(label,items){
+    if(!items.length)return;
+    html+=`<div class="section-label">${label} &nbsp;·&nbsp; ${items.length}</div>`;
+    items.forEach(b=>{
+      const sl=statusLabel(b);
+      const isOpen=expandedId===b._id;
+      const expandHtml=isOpen?`<div class="expand-panel open" id="exp-${b._id}">
+        <div class="expand-grid">
+          <div class="expand-field"><label>Billed</label><span>${fmt(b.billed)}</span></div>
+          <div class="expand-field"><label>Allowed</label><span>${fmt(b.allowed)}</span></div>
+          <div class="expand-field"><label>Your share</label><span>${fmt(b.yours)}</span></div>
+          <div class="expand-field"><label>Source</label><span>${b.source||''}</span></div>
+          ${b.paidAmount?`<div class="expand-field"><label>Paid</label><span>${fmt(b.paidAmount)}</span></div>`:''}
+          ${b.paidDate?`<div class="expand-field"><label>Paid on</label><span>${b.paidDate}</span></div>`:''}
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Payment amount</label><input type="text" id="amt-${b._id}" placeholder="${fmt(b.yours)}" value="${b.paidAmount&&b.paidAmount>0?b.paidAmount:''}" style="width:130px"></div>
+          <div class="form-group"><label>Notes</label><textarea id="note-${b._id}" placeholder="Check #, dispute reason, account…">${b.notes||''}</textarea></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-paid" onclick="doPaid('${b._id}',event)">${SVG_CHECK} Mark paid</button>
+          <button onclick="doMatched('${b._id}',event)">${SVG_FILE} Bill received</button>
+          <button class="btn-dispute" onclick="doDisputed('${b._id}',event)">${SVG_WARN} Dispute</button>
+          <button onclick="doReset('${b._id}',event)">Reset</button>
+        </div>
+      </div>`:`<div class="expand-panel" id="exp-${b._id}"></div>`;
+      html+=`
+        <div class="bill-row" onclick="toggleExpand('${b._id}')" role="button" aria-expanded="${isOpen}">
+          <div class="check-circle ${circleClass(sl)}">${iconFor(sl)}</div>
+          <div class="bill-info">
+            <div class="bill-provider">${b.provider}</div>
+            <div class="bill-meta">
+              <span>${fmtDate(b.date)}</span><span>·</span><span>${b.type||''}</span>
+              <span class="badge badge-${sl}">${badgeText(sl)}</span>
+              ${b.notes?`<span style="color:var(--text3);font-size:10px">${b.notes.slice(0,48)}${b.notes.length>48?'…':''}</span>`:''}
+            </div>
+          </div>
+          <div class="bill-amounts">
+            <div class="yours ${(b.yours||0)===0?'zero':'owed'}">${fmt(b.yours||0)}</div>
+            <div class="allowed-label">${fmt(b.allowed||0)} allowed</div>
+          </div>
+        </div>${expandHtml}`;
+    });
+  }
+  renderGroup('Balance due',groups.owed);
+  renderGroup('Covered — $0 owed',groups.covered);
+  renderGroup('Pending / in-process',groups.pending);
+  document.getElementById('bill-list').innerHTML=html||'<div class="empty">No bills match your filter.</div>';
+}
+
+function toggleExpand(id){expandedId=expandedId===id?null:id;renderList();}
+
+async function doPaid(id,e){
+  e.stopPropagation();
+  const amt=parseFloat(document.getElementById('amt-'+id)?.value)||0;
+  const note=document.getElementById('note-'+id)?.value||'';
+  const today=new Date().toISOString().slice(0,10);
+  const b=bills.find(x=>x._id===id);
+  if(b){b.status='paid';b.paidAmount=amt||b.yours;b.paidDate=today;b.notes=note;}
+  await updateBill(id,{status:'paid',paidAmount:amt||0,paidDate:today,notes:note});
+  expandedId=null;renderSummary();renderList();toast('Marked as paid');
+}
+
+async function doMatched(id,e){
+  e.stopPropagation();
+  const note=document.getElementById('note-'+id)?.value||'';
+  const b=bills.find(x=>x._id===id);
+  if(b){b.status='matched';b.notes=note;}
+  await updateBill(id,{status:'matched',notes:note});
+  expandedId=null;renderList();toast('Marked as bill received');
+}
+
+async function doDisputed(id,e){
+  e.stopPropagation();
+  const note=document.getElementById('note-'+id)?.value||'';
+  const b=bills.find(x=>x._id===id);
+  if(b){b.status='disputed';b.notes=note;}
+  await updateBill(id,{status:'disputed',notes:note});
+  expandedId=null;renderList();toast('Flagged as disputed');
+}
+
+async function doReset(id,e){
+  e.stopPropagation();
+  const b=bills.find(x=>x._id===id);
+  if(b){b.status='open';b.paidAmount=0;b.paidDate='';b.notes='';}
+  await updateBill(id,{status:'open',paidAmount:0,paidDate:'',notes:''});
+  expandedId=null;renderSummary();renderList();toast('Reset to open');
+}
+
+document.getElementById('search').addEventListener('input',renderList);
+document.getElementById('filter-status').addEventListener('change',renderList);
+
+(async()=>{
+  const statusEl=document.getElementById('header-status');
+  try{
+    statusEl.textContent='Connecting…';progress(20);
+    await ensureTable();progress(50);
+    let loaded=await loadBills();progress(75);
+    if(!loaded.length){statusEl.textContent='First run — seeding…';await seedBills();loaded=await loadBills();}
+    bills=loaded;progress(100);
+    statusEl.textContent=bills.length+' claims loaded';
+    setTimeout(()=>{statusEl.textContent='';document.getElementById('loading-bar').style.display='none';},1500);
+    renderSummary();renderList();
+  }catch(e){statusEl.textContent='Connection error';console.error(e);}
+})();
+</script>
+</body>
+</html>
