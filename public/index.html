@@ -130,7 +130,7 @@
   </div>
 
   <div class="toolbar">
-    <input type="text" id="search" placeholder="Search provider…">
+    <input type="text" id="search" placeholder="Search company, name, balance…">
     <select id="filter-status">
       <option value="">All statuses</option>
       <option value="open">Open balance</option>
@@ -217,15 +217,21 @@ let expandedId = null;
 
 function fmt(n){return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtDate(d){if(!d)return'';const p=d.split('-');return p[1]+'/'+p[2]+'/'+p[0].slice(2);}
+function moneyVal(v){return Number(String(v||0).replace(/[$,]/g,''))||0;}
 function toast(msg,dur=3000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
 function progress(pct){document.getElementById('loading-bar').style.width=pct+'%';}
 function statusLabel(b){if(b.pending)return'pending';if(b.status==='paid')return'paid';if(b.status==='disputed')return'disputed';if(b.status==='matched')return'matched';if((b.yours||0)===0)return'covered';return'open';}
 
-async function api(path, method='GET', body=null){
+async function api(path, method='GET', body=null, params={}){
   const opts={method,headers:{'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
-  const r=await fetch('/api/airtable?path='+path,opts);
-  return r.json();
+  const query=new URLSearchParams({path,...params});
+  const r=await fetch('/api/airtable?'+query.toString(),opts);
+  const data=await r.json().catch(()=>({error:'Invalid response from server'}));
+  if(!r.ok||data.error){
+    throw new Error(data.error||'Request failed');
+  }
+  return data;
 }
 
 async function ensureTable(){
@@ -235,8 +241,7 @@ async function ensureTable(){
 async function loadBills(){
   let all=[], offset=null;
   do {
-    const url = 'records' + (offset ? '&offset='+offset : '');
-    const data = await api(url);
+    const data = await api('records','GET',null,offset?{offset}:{});
     if(data.records) all=all.concat(data.records);
     offset = data.offset;
   } while(offset);
@@ -256,13 +261,13 @@ async function seedBills(){
 }
 
 async function updateBill(id,fields){
-  await fetch('/api/airtable?path=record&id='+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields})});
+  await api('record','PATCH',{fields},{id});
 }
 
 function renderSummary(){
   const active=bills.filter(b=>!b.pending);
-  const totalOwed=active.reduce((s,b)=>s+(b.yours||0),0);
-  const totalPaid=active.filter(b=>b.status==='paid').reduce((s,b)=>s+(b.paidAmount||b.yours||0),0);
+  const totalOwed=active.reduce((s,b)=>s+moneyVal(b.yours),0);
+  const totalPaid=active.filter(b=>b.status==='paid').reduce((s,b)=>s+(moneyVal(b.paidAmount)||moneyVal(b.yours)),0);
   const remaining=Math.max(0,totalOwed-totalPaid);
   const paidCount=active.filter(b=>b.status==='paid').length;
   const openCount=active.filter(b=>(b.status==='open'||b.status==='matched')&&(b.yours||0)>0).length;
@@ -280,12 +285,20 @@ const SVG_CIRCLE=`<svg width="12" height="12" fill="none" stroke="currentColor" 
 function iconFor(sl){if(sl==='paid')return SVG_CHECK;if(sl==='matched')return SVG_FILE;if(sl==='disputed')return SVG_WARN;return SVG_CIRCLE;}
 function circleClass(sl){return(sl==='paid'||sl==='matched'||sl==='disputed')?sl:'empty';}
 function badgeText(sl){if(sl==='open')return'open';if(sl==='matched')return'bill received';if(sl==='covered')return'$0 covered';return sl;}
+function normalizeSearch(v){return String(v||'').toLowerCase().replace(/[$,]/g,'').trim();}
+function billSearchText(b){
+  return [
+    b.provider,b.claimId,b.type,b.source,b.notes,b.status,statusLabel(b),
+    b.yours,b.allowed,b.billed,b.paidAmount,
+    fmt(b.yours),fmt(b.allowed),fmt(b.billed),fmt(b.paidAmount)
+  ].map(normalizeSearch).join(' ');
+}
 
 function renderList(){
-  const search=document.getElementById('search').value.toLowerCase();
+  const search=normalizeSearch(document.getElementById('search').value);
   const fStatus=document.getElementById('filter-status').value;
   let filtered=bills.filter(b=>{
-    if(search&&!b.provider.toLowerCase().includes(search))return false;
+    if(search&&!billSearchText(b).includes(search))return false;
     const sl=statusLabel(b);
     if(fStatus&&sl!==fStatus)return false;
     return true;
@@ -349,12 +362,13 @@ function toggleExpand(id){expandedId=expandedId===id?null:id;renderList();}
 
 async function doPaid(id,e){
   e.stopPropagation();
-  const amt=parseFloat(document.getElementById('amt-'+id)?.value)||0;
+  const amt=moneyVal(document.getElementById('amt-'+id)?.value);
   const note=document.getElementById('note-'+id)?.value||'';
   const today=new Date().toISOString().slice(0,10);
   const b=bills.find(x=>x._id===id);
-  if(b){b.status='paid';b.paidAmount=amt||b.yours;b.paidDate=today;b.notes=note;}
-  await updateBill(id,{status:'paid',paidAmount:amt||0,paidDate:today,notes:note});
+  const paidAmount=amt||moneyVal(b?.yours);
+  if(b){b.status='paid';b.paidAmount=paidAmount;b.paidDate=today;b.notes=note;}
+  await updateBill(id,{status:'paid',paidAmount,paidDate:today,notes:note});
   expandedId=null;renderSummary();renderList();toast('Marked as paid');
 }
 

@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   const { method } = req;
-  const { path = '', offset, filterStatus, search } = req.query;
+  const { path = '', offset } = req.query;
 
   const baseUrl = `https://api.airtable.com/v0/${baseId}/medicalBills`;
   const headers = {
@@ -21,12 +21,13 @@ export default async function handler(req, res) {
     if (method === 'GET' && path === 'meta') {
       const r = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, { headers });
       const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(r.ok ? 200 : r.status).json(data);
     }
 
     if (method === 'POST' && path === 'ensure') {
       const r = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, { headers });
       const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
       if (data.tables && data.tables.find(t => t.name === 'medicalBills')) {
         return res.status(200).json({ exists: true });
       }
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
         }),
       });
       const created = await create.json();
-      return res.status(200).json({ exists: false, created });
+      return res.status(create.ok ? 200 : create.status).json({ exists: false, created });
     }
 
     if (method === 'GET' && path === 'records') {
@@ -61,13 +62,13 @@ export default async function handler(req, res) {
       if (offset) url += `&offset=${offset}`;
       const r = await fetch(url, { headers });
       const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(r.ok ? 200 : r.status).json(data);
     }
 
     if (method === 'POST' && path === 'records') {
       const r = await fetch(baseUrl, { method: 'POST', headers, body: JSON.stringify(req.body) });
       const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(r.ok ? 200 : r.status).json(data);
     }
 
     if (method === 'PATCH' && path === 'record') {
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'Missing id' });
       const r = await fetch(`${baseUrl}/${id}`, { method: 'PATCH', headers, body: JSON.stringify(req.body) });
       const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(r.ok ? 200 : r.status).json(data);
     }
 
     return res.status(404).json({ error: 'Unknown path' });
